@@ -1,0 +1,93 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap");
+
+html,
+body {
+	padding: 0;
+	margin: 0;
+	font-family: "Inter", sans-serif;
+	overscroll-behavior: none;
+	touch-action: none;
+	min-height: 100vh;
+	font-size: 16px;
+	/* mobile viewport bug fix */
+	min-height: -webkit-fill-available;
+	height: 100%;
+}
+
+html,
+* {
+	box-sizing: border-box;
+}
+
+.tldraw__editor {
+	position: fixed;
+	inset: 0px;
+	overflow: hidden;
+}
+
+.examples {
+	padding: 16px;
+}
+
+.examples__header {
+	width: fit-content;
+	padding-bottom: 32px;
+}
+
+.examples__lockup {
+	height: 56px;
+	width: auto;
+}
+
+.examples__list {
+	display: flex;
+	flex-direction: column;
+	padding: 0;
+	margin: 0;
+	list-style: none;
+}
+
+.examples__list__item {
+	padding: 8px 12px;
+	margin: 0px -12px;
+}
+
+.examples__list__item a {
+	padding: 8px 12px;
+	margin: 0px -12px;
+	text-decoration: none;
+	color: inherit;
+}
+
+.examples__list__item a:hover {
+	text-decoration: underline;
+}
+
+.tl-background {
+	background-color: transparent;
+}
+
+.tl-shape {
+	/* position: relative; */
+	/* background-color: rgba(255, 0, 0, 0.5); Example background color */
+	/* mix-blend-mode: multiply; or 'multiply' depending on the desired effect */
+	/* filter: blur(20px); */
+	/* isolation: isolate; */
+}
+
+.tl-shape::after {
+	/* content: "";
+	position: absolute;
+	top: -50px;
+	left: -50px;
+	width: calc(100% + 100px);
+	height: calc(100% + 100px);
+	background-color: red;
+	z-index: -1;
+	filter: blur(20px);
+	mix-blend-mode: multiply; */
+}
+
+canvas {
+	z-index: 10000;
+}
