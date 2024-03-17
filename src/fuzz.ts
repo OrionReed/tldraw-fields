@@ -41,57 +41,50 @@ export class FuzzyCanvas {
   }
   drawHeatmap(sketch: p5, shapes: TLDrawShape[]) {
     const gridSize = 5; // Smaller grid size for a smoother effect
-    // Initialize a 2D array to accumulate heat values, each cell starts as 0
     let heatMap = Array(Math.ceil(sketch.width / gridSize)).fill(0)
       .map(() => Array(Math.ceil(sketch.height / gridSize)).fill(0));
-    // Initialize a 2D array to count contributing shapes for each cell
-    let contributionCount = Array(Math.ceil(sketch.width / gridSize)).fill(0)
-      .map(() => Array(Math.ceil(sketch.height / gridSize)).fill(0));
 
-    shapes.forEach((shape) => {
-      for (let x = 0; x < sketch.width; x += gridSize) {
-        for (let y = 0; y < sketch.height; y += gridSize) {
-          // Calculate distances to the edges of the rectangle
-          const leftEdge = shape.x;
-          const rightEdge = shape.x + shape.props.w;
-          const topEdge = shape.y;
-          const bottomEdge = shape.y + shape.props.h;
-
-          // Find the closest x and y coordinates on the rectangle to the point (x, y)
-          const closestX = Math.max(leftEdge, Math.min(x, rightEdge));
-          const closestY = Math.max(topEdge, Math.min(y, bottomEdge));
-
-          // Calculate the distance from the point to the closest point on the rectangle
-          const dist = sketch.dist(x, y, closestX, closestY);
-
-          // Adjust the heat calculation to create a gradient effect
-          const heat = Math.exp(-Math.pow(dist / 100, 2)); // Use a squared falloff for a sharper gradient
-
-          // Only consider contributions that are within a certain range
-          if (dist < 200) { // Adjust this value to control the reach of the tendrils
-            heatMap[Math.floor(x / gridSize)][Math.floor(y / gridSize)] += heat;
-            contributionCount[Math.floor(x / gridSize)][Math.floor(y / gridSize)] += 1;
-          }
+    // Function to find the closest point on shape B from a point on shape A
+    function findClosestPoint(point, shape) {
+      let closestPoint = { x: shape.x, y: shape.y };
+      let minDist = Infinity;
+      // Assuming rectangular shapes, check each corner
+      const corners = [
+        { x: shape.x, y: shape.y },
+        { x: shape.x + shape.props.w, y: shape.y },
+        { x: shape.x, y: shape.y + shape.props.h },
+        { x: shape.x + shape.props.w, y: shape.y + shape.props.h }
+      ];
+      corners.forEach(corner => {
+        const dist = sketch.dist(point.x, point.y, corner.x, corner.y);
+        if (dist < minDist) {
+          minDist = dist;
+          closestPoint = corner;
         }
-      }
-    });
+      });
+      return closestPoint;
+    }
 
-    // Draw the heatmap, emphasizing areas with moderate contributions to create tendrils
-    for (let x = 0; x < sketch.width; x += gridSize) {
-      for (let y = 0; y < sketch.height; y += gridSize) {
-        const heat = heatMap[Math.floor(x / gridSize)][Math.floor(y / gridSize)];
-        const count = contributionCount[Math.floor(x / gridSize)][Math.floor(y / gridSize)];
-        if (count >= 2) { // Ensure at least 2 shapes are contributing
-          // Adjust rendering to emphasize moderate heat levels
-          let alpha = 0;
-          if (heat > 0.1 && heat < 0.8) { // Adjust these thresholds to fine-tune the tendril appearance
-            alpha = sketch.map(heat, 0.1, 0.8, 0, 255);
-          }
-          sketch.fill(255, 100, 0, alpha);
-          sketch.noStroke();
-          sketch.rect(x, y, gridSize, gridSize);
+    // Iterate over pairs of shapes to find and draw lines between their closest points
+    for (let i = 0; i < shapes.length; i++) {
+      for (let j = i + 1; j < shapes.length; j++) {
+        const shapeA = shapes[i];
+        const shapeB = shapes[j];
+        // Find closest points between shapeA and shapeB
+        const pointA = { x: shapeA.x + shapeA.props.w / 2, y: shapeA.y + shapeA.props.h / 2 }; // Center of shapeA
+        const closestPointB = findClosestPoint(pointA, shapeB);
+        const closestPointA = findClosestPoint(closestPointB, shapeA);
+
+        // Check if the distance between closest points is within the threshold to draw a line
+        const dist = sketch.dist(closestPointA.x, closestPointA.y, closestPointB.x, closestPointB.y);
+        if (dist < 200) { // Proximity threshold
+          // Here, instead of directly drawing, calculate the influence of this "line" on the heatmap
+          // This is a placeholder for line influence logic
         }
       }
     }
+
+    // Heatmap drawing logic (similar to previous examples, adjusted for line-driven heat values)
+    // ...
   }
 }
