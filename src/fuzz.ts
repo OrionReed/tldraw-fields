@@ -40,9 +40,12 @@ export class FuzzyCanvas {
 
   }
   drawHeatmap(sketch: p5, shapes: TLDrawShape[]) {
-    const gridSize = 6; // Smaller grid size for a smoother effect
+    const gridSize = 5; // Smaller grid size for a smoother effect
     // Initialize a 2D array to accumulate heat values, each cell starts as 0
     let heatMap = Array(Math.ceil(sketch.width / gridSize)).fill(0)
+      .map(() => Array(Math.ceil(sketch.height / gridSize)).fill(0));
+    // Initialize a 2D array to count contributing shapes for each cell
+    let contributionCount = Array(Math.ceil(sketch.width / gridSize)).fill(0)
       .map(() => Array(Math.ceil(sketch.height / gridSize)).fill(0));
 
     shapes.forEach((shape) => {
@@ -61,24 +64,30 @@ export class FuzzyCanvas {
           // Calculate the distance from the point to the closest point on the rectangle
           const dist = sketch.dist(x, y, closestX, closestY);
 
-          // Use an exponential falloff for heat based on distance
-          const heat = Math.exp(-dist / 60); // Adjust the divisor for falloff rate
+          // Adjust the heat calculation to create a gradient effect
+          const heat = Math.exp(-Math.pow(dist / 100, 2)); // Use a squared falloff for a sharper gradient
 
-          // Accumulate the heat in the cell
-          heatMap[Math.floor(x / gridSize)][Math.floor(y / gridSize)] += heat;
+          // Only consider contributions that are within a certain range
+          if (dist < 200) { // Adjust this value to control the reach of the tendrils
+            heatMap[Math.floor(x / gridSize)][Math.floor(y / gridSize)] += heat;
+            contributionCount[Math.floor(x / gridSize)][Math.floor(y / gridSize)] += 1;
+          }
         }
       }
     });
 
-    // Draw the heatmap based on accumulated heat exceeding a threshold
+    // Draw the heatmap, emphasizing areas with moderate contributions to create tendrils
     for (let x = 0; x < sketch.width; x += gridSize) {
       for (let y = 0; y < sketch.height; y += gridSize) {
         const heat = heatMap[Math.floor(x / gridSize)][Math.floor(y / gridSize)];
-        // Adjust the threshold and color mapping as needed
-        if (heat > 0.3) { // Lower threshold for visualizing proximity
-          // Map heat to color more dynamically
-          const colorIntensity = Math.min(255, heat * 255); // Scale and cap color intensity
-          sketch.fill(255, 100, 0, colorIntensity);
+        const count = contributionCount[Math.floor(x / gridSize)][Math.floor(y / gridSize)];
+        if (count >= 2) { // Ensure at least 2 shapes are contributing
+          // Adjust rendering to emphasize moderate heat levels
+          let alpha = 0;
+          if (heat > 0.1 && heat < 0.8) { // Adjust these thresholds to fine-tune the tendril appearance
+            alpha = sketch.map(heat, 0.1, 0.8, 0, 255);
+          }
+          sketch.fill(255, 100, 0, alpha);
           sketch.noStroke();
           sketch.rect(x, y, gridSize, gridSize);
         }
