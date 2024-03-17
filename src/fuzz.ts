@@ -40,13 +40,12 @@ export class FuzzyCanvas {
 
   }
   drawHeatmap(sketch: p5, shapes: TLDrawShape[]) {
-    const gridSize = 20; // Adjust for performance vs quality
-    // Initialize a 2D array to accumulate heat values, each cell starts as an empty array
-    let heatMap = Array(Math.ceil(sketch.width / gridSize)).fill(null)
-      .map(() => Array(Math.ceil(sketch.height / gridSize)).fill(null)
-        .map(() => []));
+    const gridSize = 6; // Smaller grid size for a smoother effect
+    // Initialize a 2D array to accumulate heat values, each cell starts as 0
+    let heatMap = Array(Math.ceil(sketch.width / gridSize)).fill(0)
+      .map(() => Array(Math.ceil(sketch.height / gridSize)).fill(0));
 
-    shapes.forEach((shape, shapeIndex) => {
+    shapes.forEach((shape) => {
       for (let x = 0; x < sketch.width; x += gridSize) {
         for (let y = 0; y < sketch.height; y += gridSize) {
           // Calculate distances to the edges of the rectangle
@@ -62,21 +61,24 @@ export class FuzzyCanvas {
           // Calculate the distance from the point to the closest point on the rectangle
           const dist = sketch.dist(x, y, closestX, closestY);
 
-          // Map the distance to a heat value and add it to the cell's array
-          const heat = sketch.map(dist, 0, 100, 1, 0); // Adjust distance range and mapping as needed
-          heatMap[Math.floor(x / gridSize)][Math.floor(y / gridSize)].push(heat);
+          // Use an exponential falloff for heat based on distance
+          const heat = Math.exp(-dist / 60); // Adjust the divisor for falloff rate
+
+          // Accumulate the heat in the cell
+          heatMap[Math.floor(x / gridSize)][Math.floor(y / gridSize)] += heat;
         }
       }
     });
 
-    // Draw the heatmap based on accumulated heat in cells with contributions from at least 2 shapes
+    // Draw the heatmap based on accumulated heat exceeding a threshold
     for (let x = 0; x < sketch.width; x += gridSize) {
       for (let y = 0; y < sketch.height; y += gridSize) {
-        const cell = heatMap[Math.floor(x / gridSize)][Math.floor(y / gridSize)];
-        if (cell.length >= 2) { // Check if the cell has contributions from at least 2 shapes
-          const totalHeat = cell.reduce((acc, val) => acc + val, 0);
-          const alpha = sketch.map(totalHeat, 0, cell.length, 0, 255); // Adjust alpha based on total heat
-          sketch.fill(0, 136, 255, alpha); // Adjust color as needed
+        const heat = heatMap[Math.floor(x / gridSize)][Math.floor(y / gridSize)];
+        // Adjust the threshold and color mapping as needed
+        if (heat > 0.3) { // Lower threshold for visualizing proximity
+          // Map heat to color more dynamically
+          const colorIntensity = Math.min(255, heat * 255); // Scale and cap color intensity
+          sketch.fill(255, 100, 0, colorIntensity);
           sketch.noStroke();
           sketch.rect(x, y, gridSize, gridSize);
         }
