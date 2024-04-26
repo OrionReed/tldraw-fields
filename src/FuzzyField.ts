@@ -39,8 +39,6 @@ export class FuzzyField {
     this.height = window.innerHeight
 
     this.p5Instance = new p5((sketch: p5) => {
-      // sketch.noLoop()
-
       sketch.setup = () => {
         sketch.createCanvas(this.width, this.height)
         sketch.background(255)
@@ -48,9 +46,8 @@ export class FuzzyField {
 
       sketch.draw = () => {
         sketch.background(255) // Clear the background each frame
-        const shapes = this.editor.getCurrentPageRenderingShapesSorted()
         this.clearDistanceField()
-        this.calcDistanceField(sketch, shapes)
+        this.calcDistanceField(sketch)
         this.drawDistanceField()
       }
     })
@@ -99,8 +96,9 @@ export class FuzzyField {
     }
   }
 
-  calcDistanceField(sketch: p5, shapes: TLShape[]) {
+  calcDistanceField(sketch: p5) {
     let shape: TLShape
+    const shapes = this.editor.getCurrentPageShapes()
     const { x: cx, y: cy } = this.editor.getCamera()
 
     for (let x = 0; x < sketch.width; x += this.gridSize) {
