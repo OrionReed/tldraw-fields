@@ -1,20 +1,46 @@
-import { Editor, JsonArray, TLDrawShape, TLShape, TLShapeId, Vec, VecLike, useEditor } from "@tldraw/tldraw";
+import { Editor, TLShape } from "@tldraw/tldraw";
 import p5 from "p5";
 
-export class FuzzyCanvas {
+type AssosiativeDistFunc = (oldDist: number, newDist: number) => number
+
+const inverseDistanceWeighting: AssosiativeDistFunc = (oldDist, newDist) => {
+  const weight = 1 / (newDist + 1); // Adding 1 to avoid division by zero
+  const currentWeight = 1 / (oldDist + 1);
+  const totalWeight = weight + currentWeight;
+  return (weight * newDist + currentWeight * oldDist) / totalWeight;
+}
+
+const weightedDistance: AssosiativeDistFunc = (oldDist, newDist) => {
+  const alpha = 0.1;
+  return alpha * oldDist + (1 - alpha) * newDist;
+}
+
+const exponentialSmoothing: AssosiativeDistFunc = (oldDist, newDist) => {
+  const smoothingFactor = 0.1; // Smaller values result in smoother transitions
+  return smoothingFactor * newDist + (1 - smoothingFactor) * oldDist;
+}
+
+const minDistance: AssosiativeDistFunc = (oldDist, newDist) => {
+  return Math.min(oldDist, newDist);
+}
+
+export class FuzzyField {
   editor: Editor
   p5Instance: p5
   distanceField: number[][]
-  gridSize = 4;
+  width: number
+  height: number
+  gridSize = 3;
+  distFunc: AssosiativeDistFunc = minDistance
 
-  constructor() {
-    this.editor = window.editor as Editor
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+  constructor(editor: Editor) {
+    this.editor = editor
+    this.width = window.innerWidth;
+    this.height = window.innerHeight;
 
     this.p5Instance = new p5((sketch: p5) => {
       sketch.setup = () => {
-        sketch.createCanvas(width, height);
+        sketch.createCanvas(this.width, this.height);
         sketch.background(255);
       };
       sketch.draw = () => {
@@ -34,8 +60,13 @@ export class FuzzyCanvas {
   }
 
   clearDistanceField() {
-    this.distanceField = Array(Math.ceil(this.p5Instance.width / this.gridSize)).fill(1000)
-      .map(() => Array(Math.ceil(this.p5Instance.height / this.gridSize)).fill(1000));
+    const width = Math.ceil(this.width / this.gridSize);
+    const height = Math.ceil(this.height / this.gridSize);
+    this.distanceField = new Array(width);
+
+    for (let i = 0; i < width; i++) {
+      this.distanceField[i] = new Array(height).fill(1000);
+    }
   }
 
   drawDistanceField() {
@@ -68,32 +99,27 @@ export class FuzzyCanvas {
     }
   }
 
-
   calcDistanceField(sketch: p5, shapes: TLShape[]) {
     shapes.forEach((shape) => {
       const geo = this.editor.getShapeGeometry(shape.id)
-      const bounds = geo.bounds
-      const min: VecLike = { x: bounds.minX + shape.x, y: bounds.minY + shape.y }
-      const max: VecLike = { x: bounds.maxX + shape.x, y: bounds.maxY + shape.y }
+      const camX = this.editor.getCamera().x
+      const camY = this.editor.getCamera().y
       for (let x = 0; x < sketch.width; x += this.gridSize) {
         for (let y = 0; y < sketch.height; y += this.gridSize) {
-          const isInBounds = min.x < x && x < max.x && min.y < y && y < max.y
-          if (isInBounds) {
-            this.distanceField[Math.floor(x / this.gridSize)][Math.floor(y / this.gridSize)] = 0;
-            continue
-          }
-          const maxDist = 255
-          const isFarFromBounds = x < min.x - maxDist || x > max.x + maxDist || y < min.y - maxDist || y > max.y + maxDist
-          if (isFarFromBounds) {
-            continue
-          }
-
-          const pointInShapeSpace = this.editor.getPointInShapeSpace(shape, { x, y })
+          const pointInShapeSpace = this.editor.getPointInShapeSpace(shape, { x: x - camX, y: y - camY })
           const dist = geo.distanceToPoint(pointInShapeSpace, true)
-          const currentVal = this.distanceField[Math.floor(x / this.gridSize)][Math.floor(y / this.gridSize)];
-          this.distanceField[Math.floor(x / this.gridSize)][Math.floor(y / this.gridSize)] = Math.min(currentVal, dist);
+          const oldDist = this.getDistance(x, y)
+
+          this.setDistance(x, y, this.distFunc(oldDist, dist));
         }
       }
     });
   }
+  setDistance(x: number, y: number, value: number) {
+    this.distanceField[Math.floor(x / this.gridSize)][Math.floor(y / this.gridSize)] = value;
+  }
+  getDistance(x: number, y: number) {
+    return this.distanceField[Math.floor(x / this.gridSize)][Math.floor(y / this.gridSize)]
+  }
 }
+
