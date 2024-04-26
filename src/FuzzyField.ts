@@ -1,4 +1,4 @@
-import { Editor, TLShape } from '@tldraw/tldraw'
+import { Editor, TLShape, react, throttle } from '@tldraw/tldraw'
 import p5 from 'p5'
 
 type AssosiativeDistFunc = (oldDist: number, newDist: number) => number
@@ -51,12 +51,13 @@ export class FuzzyField {
         this.drawDistanceField()
       }
     })
-
-    this.editor.store.onAfterChange = (_a, next, _b) => {
-      if (next.typeName !== 'shape') return
-      this.p5Instance.redraw()
-    }
     this.clearDistanceField()
+    react(
+      'redraw',
+      throttle(() => {
+        this.p5Instance.redraw()
+      }, 160)
+    )
   }
 
   clearDistanceField() {
@@ -101,15 +102,17 @@ export class FuzzyField {
   }
 
   calcDistanceField(sketch: p5, shapes: TLShape[]) {
-    shapes.forEach((shape) => {
-      const geo = this.editor.getShapeGeometry(shape.id)
-      const camX = this.editor.getCamera().x
-      const camY = this.editor.getCamera().y
-      for (let x = 0; x < sketch.width; x += this.gridSize) {
-        for (let y = 0; y < sketch.height; y += this.gridSize) {
+    let shape: TLShape
+    const { x: cx, y: cy } = this.editor.getCamera()
+
+    for (let x = 0; x < sketch.width; x += this.gridSize) {
+      for (let y = 0; y < sketch.height; y += this.gridSize) {
+        for (let i = 0; i < shapes.length; i++) {
+          shape = shapes[i]
+          const geo = this.editor.getShapeGeometry(shape.id)
           const pointInShapeSpace = this.editor.getPointInShapeSpace(shape, {
-            x: x - camX,
-            y: y - camY,
+            x: x - cx,
+            y: y - cy,
           })
           const dist = geo.distanceToPoint(pointInShapeSpace, true)
           const oldDist = this.getDistance(x, y)
@@ -117,7 +120,7 @@ export class FuzzyField {
           this.setDistance(x, y, this.distFunc(oldDist, dist))
         }
       }
-    })
+    }
   }
   setDistance(x: number, y: number, value: number) {
     this.distanceField[Math.floor(x / this.gridSize)][Math.floor(y / this.gridSize)] = value
