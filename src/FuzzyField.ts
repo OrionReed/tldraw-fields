@@ -30,7 +30,7 @@ export class FuzzyField {
   distanceField: number[][]
   width: number
   height: number
-  gridSize = 3;
+  gridSize = 6;
   distFunc: AssosiativeDistFunc = minDistance
 
   constructor(editor: Editor) {
