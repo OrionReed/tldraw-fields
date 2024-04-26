@@ -39,10 +39,13 @@ export class FuzzyField {
     this.height = window.innerHeight
 
     this.p5Instance = new p5((sketch: p5) => {
+      // sketch.noLoop()
+
       sketch.setup = () => {
         sketch.createCanvas(this.width, this.height)
         sketch.background(255)
       }
+
       sketch.draw = () => {
         sketch.background(255) // Clear the background each frame
         const shapes = this.editor.getCurrentPageRenderingShapesSorted()
@@ -51,13 +54,8 @@ export class FuzzyField {
         this.drawDistanceField()
       }
     })
+
     this.clearDistanceField()
-    react(
-      'redraw',
-      throttle(() => {
-        this.p5Instance.redraw()
-      }, 160)
-    )
   }
 
   clearDistanceField() {
