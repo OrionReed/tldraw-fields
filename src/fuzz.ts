@@ -1,97 +1,99 @@
-import { Editor, JsonArray, TLDrawShape, TLShapeId, useEditor } from "@tldraw/tldraw";
+import { Editor, JsonArray, TLDrawShape, TLShape, TLShapeId, Vec, VecLike, useEditor } from "@tldraw/tldraw";
 import p5 from "p5";
 
 export class FuzzyCanvas {
   editor: Editor
   p5Instance: p5
+  distanceField: number[][]
+  gridSize = 4;
+
   constructor() {
     this.editor = window.editor as Editor
-    console.log('constructing fuzzy canvas');
+    const width = window.innerWidth;
+    const height = window.innerHeight;
 
     this.p5Instance = new p5((sketch: p5) => {
       sketch.setup = () => {
-        sketch.createCanvas(window.innerWidth, window.innerHeight);
-        // canvas.parent('root'); // Specify the parent element's ID
+        sketch.createCanvas(width, height);
         sketch.background(255);
       };
       sketch.draw = () => {
         sketch.background(255); // Clear the background each frame
-        const shapes = this.editor.getCurrentPageShapes();
-        this.drawHeatmap(sketch, shapes);
+        const shapes = this.editor.getCurrentPageRenderingShapesSorted();
+        this.clearDistanceField();
+        this.calcDistanceField(sketch, shapes);
+        this.drawDistanceField();
       };
     });
 
-    this.editor.store.onAfterChange = (prev, next, _) => {
-      if (next.typeName === "pointer") return
-      if (next.typeName === "instance") return
-      console.log('changing');
+    this.editor.store.onAfterChange = (_a, next, _b) => {
+      if (next.typeName !== "shape") return
       this.p5Instance.redraw();
+    }
+    this.clearDistanceField();
+  }
 
-      // const shapes = this.editor.getCurrentPageShapes()
-      // this.p5Instance.clear();
-      // Object.values(shapes).forEach(shape => {
-      //   const x = shape.x
-      //   const y = shape.y
-      //   this.p5Instance.fill('orange'); // Set fill color to blue
-      //   this.p5Instance.rect(x, y, shape.props.w, shape.props.h); // Draw an ellipse at the shape's position
-      // });
-      // return;
+  clearDistanceField() {
+    this.distanceField = Array(Math.ceil(this.p5Instance.width / this.gridSize)).fill(1000)
+      .map(() => Array(Math.ceil(this.p5Instance.height / this.gridSize)).fill(1000));
+  }
+
+  drawDistanceField() {
+    const sketch = this.p5Instance
+    sketch.colorMode(sketch.HSL);
+    sketch.loadPixels();
+    const fillColor = (dist: number) => {
+      const alpha = sketch.map(dist, 0, 255, 1, 0);
+      const N = 40; // Distance change interval
+      const Y = 40; // Hue change amount
+      const hue = 255 - ((Math.floor(dist / N) * Y) % 256);
+
+      return sketch.color(hue, 50, 50, alpha);
     }
 
+    for (let x = 0; x < sketch.width; x += this.gridSize) {
+      for (let y = 0; y < sketch.height; y += this.gridSize) {
+        const currentDistance = this.distanceField[Math.floor(x / this.gridSize)][Math.floor(y / this.gridSize)];
+        const index = ((x + y) * sketch.width + (x + y)) * this.gridSize;
+        const color = fillColor(currentDistance)
+        sketch.pixels[index] = sketch.red(color);
+        sketch.pixels[index + 1] = sketch.green(color);
+        sketch.pixels[index + 2] = sketch.blue(color);
+        sketch.pixels[index + 3] = sketch.alpha(color);
+
+        sketch.fill(fillColor(currentDistance));
+        sketch.noStroke();
+        sketch.rect(x, y, this.gridSize, this.gridSize);
+      }
+    }
   }
-  drawHeatmap(sketch: p5, shapes: TLDrawShape[]) {
-    const gridSize = 5; // Smaller grid size for a smoother effect
-    // Initialize a 2D array to accumulate heat values, each cell starts as 0
-    let heatMap = Array(Math.ceil(sketch.width / gridSize)).fill(0)
-      .map(() => Array(Math.ceil(sketch.height / gridSize)).fill(0));
-    // Initialize a 2D array to count contributing shapes for each cell
-    let contributionCount = Array(Math.ceil(sketch.width / gridSize)).fill(0)
-      .map(() => Array(Math.ceil(sketch.height / gridSize)).fill(0));
 
+
+  calcDistanceField(sketch: p5, shapes: TLShape[]) {
     shapes.forEach((shape) => {
-      for (let x = 0; x < sketch.width; x += gridSize) {
-        for (let y = 0; y < sketch.height; y += gridSize) {
-          // Calculate distances to the edges of the rectangle
-          const leftEdge = shape.x;
-          const rightEdge = shape.x + shape.props.w;
-          const topEdge = shape.y;
-          const bottomEdge = shape.y + shape.props.h;
-
-          // Find the closest x and y coordinates on the rectangle to the point (x, y)
-          const closestX = Math.max(leftEdge, Math.min(x, rightEdge));
-          const closestY = Math.max(topEdge, Math.min(y, bottomEdge));
-
-          // Calculate the distance from the point to the closest point on the rectangle
-          const dist = sketch.dist(x, y, closestX, closestY);
-
-          // Adjust the heat calculation to create a gradient effect
-          const heat = Math.exp(-Math.pow(dist / 100, 2)); // Use a squared falloff for a sharper gradient
-
-          // Only consider contributions that are within a certain range
-          if (dist < 200) { // Adjust this value to control the reach of the tendrils
-            heatMap[Math.floor(x / gridSize)][Math.floor(y / gridSize)] += heat;
-            contributionCount[Math.floor(x / gridSize)][Math.floor(y / gridSize)] += 1;
+      const geo = this.editor.getShapeGeometry(shape.id)
+      const bounds = geo.bounds
+      const min: VecLike = { x: bounds.minX + shape.x, y: bounds.minY + shape.y }
+      const max: VecLike = { x: bounds.maxX + shape.x, y: bounds.maxY + shape.y }
+      for (let x = 0; x < sketch.width; x += this.gridSize) {
+        for (let y = 0; y < sketch.height; y += this.gridSize) {
+          const isInBounds = min.x < x && x < max.x && min.y < y && y < max.y
+          if (isInBounds) {
+            this.distanceField[Math.floor(x / this.gridSize)][Math.floor(y / this.gridSize)] = 0;
+            continue
           }
+          const maxDist = 255
+          const isFarFromBounds = x < min.x - maxDist || x > max.x + maxDist || y < min.y - maxDist || y > max.y + maxDist
+          if (isFarFromBounds) {
+            continue
+          }
+
+          const pointInShapeSpace = this.editor.getPointInShapeSpace(shape, { x, y })
+          const dist = geo.distanceToPoint(pointInShapeSpace, true)
+          const currentVal = this.distanceField[Math.floor(x / this.gridSize)][Math.floor(y / this.gridSize)];
+          this.distanceField[Math.floor(x / this.gridSize)][Math.floor(y / this.gridSize)] = Math.min(currentVal, dist);
         }
       }
     });
-
-    // Draw the heatmap, emphasizing areas with moderate contributions to create tendrils
-    for (let x = 0; x < sketch.width; x += gridSize) {
-      for (let y = 0; y < sketch.height; y += gridSize) {
-        const heat = heatMap[Math.floor(x / gridSize)][Math.floor(y / gridSize)];
-        const count = contributionCount[Math.floor(x / gridSize)][Math.floor(y / gridSize)];
-        if (count >= 2) { // Ensure at least 2 shapes are contributing
-          // Adjust rendering to emphasize moderate heat levels
-          let alpha = 0;
-          if (heat > 0.1 && heat < 0.8) { // Adjust these thresholds to fine-tune the tendril appearance
-            alpha = sketch.map(heat, 0.1, 0.8, 0, 255);
-          }
-          sketch.fill(255, 100, 0, alpha);
-          sketch.noStroke();
-          sketch.rect(x, y, gridSize, gridSize);
-        }
-      }
-    }
   }
 }
