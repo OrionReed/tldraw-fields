@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap");
+/* @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap"); */
 
 html,
 body {
@@ -67,27 +67,20 @@ html,
 	background-color: transparent;
 }
 
-.tl-shape {
-	/* position: relative; */
-	/* background-color: rgba(255, 0, 0, 0.5); Example background color */
-	/* mix-blend-mode: multiply; or 'multiply' depending on the desired effect */
-	/* filter: blur(20px); */
-	/* isolation: isolate; */
-}
-
-.tl-shape::after {
-	/* content: "";
-	position: absolute;
-	top: -50px;
-	left: -50px;
-	width: calc(100% + 100px);
-	height: calc(100% + 100px);
-	background-color: red;
-	z-index: -1;
-	filter: blur(20px);
-	mix-blend-mode: multiply; */
-}
-
 canvas {
 	z-index: 10000;
+}
+
+.controls {
+	pointer-events: "all";
+	position: absolute;
+	left: 50%;
+	margin: 0.2em;
+	transform: translateX(-50%);
+	z-index: 999999;
+}
+
+.controls button {
+	margin: 0.1em;
+	padding: 0.1em;
 }

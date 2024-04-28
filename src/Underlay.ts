@@ -30,7 +30,10 @@ export class Underlay {
         layer = sketch.createFramebuffer(bufferOpts) as unknown as p5.Framebuffer; // eww
       };
       sketch.draw = () => {
-        sketch.background(255);
+        sketch.colorMode(sketch.HSL)
+        const isDarkMode = this.editor.user.getIsDarkMode()
+        const bgColor: p5.Color = isDarkMode ? sketch.color(220, 10, 10) : sketch.color('white')
+        sketch.background(bgColor);
         const shapes = this.editor.getCurrentPageShapes();
         layer.begin();
         sketch.clear();
@@ -41,9 +44,9 @@ export class Underlay {
         layer.end();
 
         // Apply fog to the scene
-        const fogColor = sketch.color('#fff');
+        // const fogColor = sketch.color(bgColor);
         sketch.shader(fogShader);
-        fogShader.setUniform('fog', [sketch.red(fogColor), sketch.green(fogColor), sketch.blue(fogColor)]);
+        fogShader.setUniform('fog', [sketch.red(bgColor), sketch.green(bgColor), sketch.blue(bgColor)]);
         fogShader.setUniform('img', layer.color);
         fogShader.setUniform('depth', layer.depth);
         sketch.rect(0, 0, sketch.width, sketch.height);
@@ -52,7 +55,6 @@ export class Underlay {
   }
 
   draw(sketch: p5, shapes: TLShape[]) {
-    sketch.colorMode(sketch.HSL)
     const cam = this.editor.getCamera()
     let previousShape: TLShape | null = null
     shapes.forEach((shape) => {

@@ -26,7 +26,7 @@ export const Controls = () => {
   };
 
   return (
-    <div className="controls" style={{ pointerEvents: 'all', position: 'absolute', top: 10, right: 10, zIndex: 999999 }}>
+    <div className="controls">
       <button type="button" onClick={toggleDepth}>
         {showDepth ? 'Hide Depth' : 'Show Depth'}
       </button>
