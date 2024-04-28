@@ -1,37 +1,12 @@
 import { Editor, TLShape } from "@tldraw/tldraw";
 import p5 from "p5";
 
-type AssosiativeDistFunc = (oldDist: number, newDist: number) => number
-
-const inverseDistanceWeighting: AssosiativeDistFunc = (oldDist, newDist) => {
-  const weight = 1 / (newDist + 1); // Adding 1 to avoid division by zero
-  const currentWeight = 1 / (oldDist + 1);
-  const totalWeight = weight + currentWeight;
-  return (weight * newDist + currentWeight * oldDist) / totalWeight;
-}
-
-const weightedDistance: AssosiativeDistFunc = (oldDist, newDist) => {
-  const alpha = 0.1;
-  return alpha * oldDist + (1 - alpha) * newDist;
-}
-
-const exponentialSmoothing: AssosiativeDistFunc = (oldDist, newDist) => {
-  const smoothingFactor = 0.1; // Smaller values result in smoother transitions
-  return smoothingFactor * newDist + (1 - smoothingFactor) * oldDist;
-}
-
-const minDistance: AssosiativeDistFunc = (oldDist, newDist) => {
-  return Math.min(oldDist, newDist);
-}
 
 export class FuzzyField {
   editor: Editor
   p5Instance: p5
-  distanceField: number[][]
   width: number
   height: number
-  gridSize = 6;
-  distFunc: AssosiativeDistFunc = minDistance
 
   constructor(editor: Editor) {
     this.editor = editor
@@ -40,15 +15,13 @@ export class FuzzyField {
 
     this.p5Instance = new p5((sketch: p5) => {
       sketch.setup = () => {
-        sketch.createCanvas(this.width, this.height);
+        sketch.createCanvas(this.width, this.height, sketch.WEBGL);
         sketch.background(255);
       };
       sketch.draw = () => {
         sketch.background(255); // Clear the background each frame
         const shapes = this.editor.getCurrentPageRenderingShapesSorted();
-        this.clearDistanceField();
-        this.calcDistanceField(sketch, shapes);
-        this.drawDistanceField();
+        this.drawUnderlay(sketch, shapes);
       };
     });
 
@@ -56,70 +29,26 @@ export class FuzzyField {
       if (next.typeName !== "shape") return
       this.p5Instance.redraw();
     }
-    this.clearDistanceField();
   }
 
-  clearDistanceField() {
-    const width = Math.ceil(this.width / this.gridSize);
-    const height = Math.ceil(this.height / this.gridSize);
-    this.distanceField = new Array(width);
+  drawUnderlay(sketch: p5, shapes: TLShape[]) {
+    const cam = this.editor.getCamera()
 
-    for (let i = 0; i < width; i++) {
-      this.distanceField[i] = new Array(height).fill(1000);
-    }
-  }
-
-  drawDistanceField() {
-    const sketch = this.p5Instance
-    sketch.colorMode(sketch.HSL);
-    sketch.loadPixels();
-    const fillColor = (dist: number) => {
-      const alpha = sketch.map(dist, 0, 255, 1, 0);
-      const N = 40; // Distance change interval
-      const Y = 40; // Hue change amount
-      const hue = 255 - ((Math.floor(dist / N) * Y) % 256);
-
-      return sketch.color(hue, 50, 50, alpha);
-    }
-
-    for (let x = 0; x < sketch.width; x += this.gridSize) {
-      for (let y = 0; y < sketch.height; y += this.gridSize) {
-        const currentDistance = this.distanceField[Math.floor(x / this.gridSize)][Math.floor(y / this.gridSize)];
-        const index = ((x + y) * sketch.width + (x + y)) * this.gridSize;
-        const color = fillColor(currentDistance)
-        sketch.pixels[index] = sketch.red(color);
-        sketch.pixels[index + 1] = sketch.green(color);
-        sketch.pixels[index + 2] = sketch.blue(color);
-        sketch.pixels[index + 3] = sketch.alpha(color);
-
-        sketch.fill(fillColor(currentDistance));
-        sketch.noStroke();
-        sketch.rect(x, y, this.gridSize, this.gridSize);
-      }
-    }
-  }
-
-  calcDistanceField(sketch: p5, shapes: TLShape[]) {
     shapes.forEach((shape) => {
       const geo = this.editor.getShapeGeometry(shape.id)
-      const camX = this.editor.getCamera().x
-      const camY = this.editor.getCamera().y
-      for (let x = 0; x < sketch.width; x += this.gridSize) {
-        for (let y = 0; y < sketch.height; y += this.gridSize) {
-          const pointInShapeSpace = this.editor.getPointInShapeSpace(shape, { x: x - camX, y: y - camY })
-          const dist = geo.distanceToPoint(pointInShapeSpace, true)
-          const oldDist = this.getDistance(x, y)
+      const width = geo.bounds.w
+      const height = geo.bounds.h
+      const shapeX = (shape.x + cam.x) - (sketch.width) / 2;
+      const shapeY = (shape.y + cam.y) - sketch.height / 2;
 
-          this.setDistance(x, y, this.distFunc(oldDist, dist));
-        }
-      }
+      // Draw a blue cube at the position of each shape
+      const depth = 1000
+      sketch.push(); // Save the current drawing state
+      sketch.translate(shapeX + width / 2, shapeY + height / 2, -depth / 2); // Move to the correct position
+      sketch.fill(51, 204, 255); // Set the color to blue
+      sketch.box(width, height, depth); // Draw a cube with size 50
+      sketch.pop(); // Restore the original drawing state
     });
-  }
-  setDistance(x: number, y: number, value: number) {
-    this.distanceField[Math.floor(x / this.gridSize)][Math.floor(y / this.gridSize)] = value;
-  }
-  getDistance(x: number, y: number) {
-    return this.distanceField[Math.floor(x / this.gridSize)][Math.floor(y / this.gridSize)]
   }
 }
 
