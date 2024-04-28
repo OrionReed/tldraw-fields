@@ -1,6 +1,7 @@
 import { Tldraw } from "@tldraw/tldraw";
 import "@tldraw/tldraw/tldraw.css";
-import { FuzzyField } from "./FuzzyField";
+import { Underlay } from "./Underlay";
+import { Controls } from "./Controls";
 
 export default function Canvas() {
 	return (
@@ -8,9 +9,10 @@ export default function Canvas() {
 			<Tldraw
 				persistenceKey="fuzzy-canvas"
 				onMount={(editor) => {
-					new FuzzyField(editor);
+					new Underlay(editor);
 				}}
 			>
+				<Controls />
 			</Tldraw>
 		</div>
 	);
