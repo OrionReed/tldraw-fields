@@ -41,10 +41,14 @@ export class FuzzyField {
       const shapeX = (shape.x + cam.x) - (sketch.width) / 2;
       const shapeY = (shape.y + cam.y) - sketch.height / 2;
 
-      // Draw a blue cube at the position of each shape
       const depth = 1000
-      sketch.push(); // Save the current drawing state
-      sketch.translate(shapeX + width / 2, shapeY + height / 2, -depth / 2); // Move to the correct position
+      sketch.push();
+      // Translate to the top-left corner of the shape
+      sketch.translate(shapeX, shapeY, -depth / 2);
+      // Apply rotation around the Z-axis
+      sketch.rotateZ(shape.rotation);
+
+      sketch.translate(width / 2, height / 2, 0); // Move to the correct position
       sketch.fill(51, 204, 255); // Set the color to blue
       sketch.box(width, height, depth); // Draw a cube with size 50
       sketch.pop(); // Restore the original drawing state
